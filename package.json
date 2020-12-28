@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "start": "parcel public/index.html",
-    "build": "parcel build public/index.html"
+    "build": "npm i -g elm@latest-0.19.1 && parcel build public/index.html"
   },
   "devDependencies": {
     "elm-hot": "^1.1.5",
