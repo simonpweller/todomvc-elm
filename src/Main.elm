@@ -1,8 +1,10 @@
 module Main exposing (main)
 
 import Browser
-import Html exposing (a, button, div, footer, input, label, li, section, span, strong, text, ul)
-import Html.Attributes exposing (attribute, class, for, href, id, type_, value)
+import Html exposing (Attribute, a, button, div, footer, h1, header, input, label, li, main_, section, span, strong, text, ul)
+import Html.Attributes exposing (autofocus, class, for, href, id, placeholder, type_, value)
+import Html.Events exposing (keyCode, on, onBlur, onInput)
+import Json.Decode as Json
 
 
 
@@ -19,6 +21,8 @@ main =
 
 type Msg
     = NoOp
+    | UpdateNewTodoText String
+    | SubmitNewTodo
 
 
 update : Msg -> Model -> Model
@@ -27,32 +31,43 @@ update msg model =
         NoOp ->
             model
 
+        UpdateNewTodoText text ->
+            { model | newTodoText = text }
+
+        SubmitNewTodo ->
+            { model | todos = model.todos ++ [ String.trim model.newTodoText ], newTodoText = "" }
+
 
 
 -- MODEL
 
 
 type alias Model =
-    List String
+    { todos : List String
+    , newTodoText : String
+    }
 
 
 init : Model
 init =
-    []
+    { todos = []
+    , newTodoText = ""
+    }
 
 
 
 -- VIEW
 
 
-view : Model -> Html.Html msg
+view : Model -> Html.Html Msg
 view model =
-    if List.isEmpty model then
-        text ""
+    main_ []
+        (if List.isEmpty model.todos then
+            [ newTodo model.newTodoText ]
 
-    else
-        div []
-            [ section
+         else
+            [ newTodo model.newTodoText
+            , section
                 [ class "main" ]
                 [ input [ class "toggle-all", id "toggle-all", type_ "checkbox" ]
                     []
@@ -61,23 +76,45 @@ view model =
                 , ul [ class "todo-list" ]
                     (List.map
                         todo
-                        model
+                        model.todos
                     )
                 ]
             , footerHtml
             ]
+        )
+
+
+newTodo : String -> Html.Html Msg
+newTodo newTodoText =
+    header [ class "header" ]
+        [ h1 []
+            [ text "todos" ]
+        , input [ autofocus True, class "new-todo", placeholder "What needs to be done?", value newTodoText, onBlur SubmitNewTodo, onInput UpdateNewTodoText, handleEnter ]
+            []
+        ]
+
+
+handleEnter : Attribute Msg
+handleEnter =
+    let
+        isEnter code =
+            if code == 13 then
+                Json.succeed SubmitNewTodo
+
+            else
+                Json.fail "not ENTER"
+    in
+    on "keydown" (Json.andThen isEnter keyCode)
 
 
 todo : String -> Html.Html msg
 todo todoText =
-    li [ class "completed" ]
+    li []
         [ div [ class "view" ]
-            [ input [ attribute "checked" "", class "toggle", type_ "checkbox" ]
+            [ input [ class "toggle", type_ "checkbox" ]
                 []
             , label []
                 [ text todoText ]
-            , button [ class "destroy" ]
-                []
             ]
         , input [ class "edit", value "Create a TodoMVC template" ]
             []
