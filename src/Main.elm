@@ -16,29 +16,6 @@ main =
 
 
 
--- UPDATE
-
-
-type Msg
-    = NoOp
-    | UpdateNewTodoText String
-    | SubmitNewTodo
-
-
-update : Msg -> Model -> Model
-update msg model =
-    case msg of
-        NoOp ->
-            model
-
-        UpdateNewTodoText text ->
-            { model | newTodoText = text }
-
-        SubmitNewTodo ->
-            { model | todos = model.todos ++ [ String.trim model.newTodoText ], newTodoText = "" }
-
-
-
 -- MODEL
 
 
@@ -53,6 +30,29 @@ init =
     { todos = []
     , newTodoText = ""
     }
+
+
+
+-- UPDATE
+
+
+type Msg
+    = UpdateNewTodoText String
+    | SubmitNewTodo
+
+
+update : Msg -> Model -> Model
+update msg model =
+    case msg of
+        UpdateNewTodoText text ->
+            { model | newTodoText = text }
+
+        SubmitNewTodo ->
+            if String.isEmpty (String.trim model.newTodoText) then
+                model
+
+            else
+                { model | todos = model.todos ++ [ String.trim model.newTodoText ], newTodoText = "" }
 
 
 
@@ -89,22 +89,18 @@ newTodo newTodoText =
     header [ class "header" ]
         [ h1 []
             [ text "todos" ]
-        , input [ autofocus True, class "new-todo", placeholder "What needs to be done?", value newTodoText, onBlur SubmitNewTodo, onInput UpdateNewTodoText, handleEnter ]
+        , input [ autofocus True, class "new-todo", placeholder "What needs to be done?", value newTodoText, onBlur SubmitNewTodo, onInput UpdateNewTodoText, on "keydown" (Json.andThen handleKeyDown keyCode) ]
             []
         ]
 
 
-handleEnter : Attribute Msg
-handleEnter =
-    let
-        isEnter code =
-            if code == 13 then
-                Json.succeed SubmitNewTodo
+handleKeyDown : number -> Json.Decoder Msg
+handleKeyDown code =
+    if code == 13 then
+        Json.succeed SubmitNewTodo
 
-            else
-                Json.fail "not ENTER"
-    in
-    on "keydown" (Json.andThen isEnter keyCode)
+    else
+        Json.fail "not ENTER"
 
 
 todo : String -> Html.Html msg
