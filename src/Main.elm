@@ -3,7 +3,7 @@ module Main exposing (main)
 import Browser
 import Html exposing (Attribute, a, button, div, footer, h1, header, input, label, li, main_, section, span, strong, text, ul)
 import Html.Attributes exposing (autofocus, class, for, href, id, placeholder, type_, value)
-import Html.Events exposing (keyCode, on, onBlur, onInput)
+import Html.Events exposing (keyCode, on, onBlur, onClick, onInput)
 import Json.Decode as Json
 
 
@@ -19,9 +19,17 @@ main =
 -- MODEL
 
 
+type alias Todo =
+    { text : String
+    , id : Int
+    , completed : Bool
+    }
+
+
 type alias Model =
-    { todos : List String
+    { todos : List Todo
     , newTodoText : String
+    , nextId : Int
     }
 
 
@@ -29,6 +37,7 @@ init : Model
 init =
     { todos = []
     , newTodoText = ""
+    , nextId = 0
     }
 
 
@@ -39,6 +48,7 @@ init =
 type Msg
     = UpdateNewTodoText String
     | SubmitNewTodo
+    | ToggleTodo Todo
 
 
 update : Msg -> Model -> Model
@@ -52,7 +62,23 @@ update msg model =
                 model
 
             else
-                { model | todos = model.todos ++ [ String.trim model.newTodoText ], newTodoText = "" }
+                { model | todos = model.todos ++ [ Todo (String.trim model.newTodoText) model.nextId False ], newTodoText = "", nextId = model.nextId + 1 }
+
+        ToggleTodo todo ->
+            { model | todos = toggleTodo todo model.todos }
+
+
+toggleTodo : Todo -> List Todo -> List Todo
+toggleTodo todoToToggle list =
+    let
+        toggle todo =
+            if todo.id == todoToToggle.id then
+                { todo | completed = not todo.completed }
+
+            else
+                todo
+    in
+    List.map toggle list
 
 
 
@@ -75,11 +101,11 @@ view model =
                     [ text "Mark all as complete" ]
                 , ul [ class "todo-list" ]
                     (List.map
-                        todo
+                        renderTodo
                         model.todos
                     )
                 ]
-            , footerHtml
+            , renderFooter
             ]
         )
 
@@ -103,21 +129,27 @@ handleKeyDown code =
         Json.fail "not ENTER"
 
 
-todo : String -> Html.Html msg
-todo todoText =
-    li []
+renderTodo : Todo -> Html.Html Msg
+renderTodo todo =
+    li
+        (if todo.completed then
+            [ class "completed" ]
+
+         else
+            []
+        )
         [ div [ class "view" ]
-            [ input [ class "toggle", type_ "checkbox" ]
+            [ input [ class "toggle", type_ "checkbox", onClick (ToggleTodo todo) ]
                 []
             , label []
-                [ text todoText ]
+                [ text todo.text ]
             ]
         , input [ class "edit", value "Create a TodoMVC template" ]
             []
         ]
 
 
-footerHtml =
+renderFooter =
     footer [ class "footer" ]
         [ span [ class "todo-count" ]
             [ strong []
