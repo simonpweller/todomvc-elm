@@ -2,7 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Html exposing (Attribute, a, button, div, footer, h1, header, input, label, li, main_, section, span, strong, text, ul)
-import Html.Attributes exposing (autofocus, class, for, href, id, placeholder, type_, value)
+import Html.Attributes exposing (autofocus, checked, class, for, href, id, placeholder, type_, value)
 import Html.Events exposing (keyCode, on, onBlur, onClick, onInput)
 import Json.Decode as Json
 
@@ -49,6 +49,7 @@ type Msg
     = UpdateNewTodoText String
     | SubmitNewTodo
     | ToggleTodo Todo
+    | ToggleAll
 
 
 update : Msg -> Model -> Model
@@ -67,18 +68,51 @@ update msg model =
         ToggleTodo todo ->
             { model | todos = toggleTodo todo model.todos }
 
+        ToggleAll ->
+            { model
+                | todos =
+                    List.map
+                        (toggleTo (anyOpen model.todos))
+                        model.todos
+            }
+
 
 toggleTodo : Todo -> List Todo -> List Todo
 toggleTodo todoToToggle list =
     let
         toggle todo =
             if todo.id == todoToToggle.id then
-                { todo | completed = not todo.completed }
+                { todo | completed = isOpen todo }
 
             else
                 todo
     in
     List.map toggle list
+
+
+toggleTo : Bool -> Todo -> Todo
+toggleTo to todo =
+    { todo | completed = to }
+
+
+isDone : Todo -> Bool
+isDone todo =
+    todo.completed
+
+
+isOpen : Todo -> Bool
+isOpen todo =
+    not (isDone todo)
+
+
+anyOpen : List Todo -> Bool
+anyOpen todos =
+    List.any isOpen todos
+
+
+allDone : List Todo -> Bool
+allDone todos =
+    not (anyOpen todos)
 
 
 
@@ -95,7 +129,7 @@ view model =
             [ newTodo model.newTodoText
             , section
                 [ class "main" ]
-                [ input [ class "toggle-all", id "toggle-all", type_ "checkbox" ]
+                [ input [ class "toggle-all", id "toggle-all", type_ "checkbox", onClick ToggleAll, checked (allDone model.todos) ]
                     []
                 , label [ for "toggle-all" ]
                     [ text "Mark all as complete" ]
@@ -139,7 +173,7 @@ renderTodo todo =
             []
         )
         [ div [ class "view" ]
-            [ input [ class "toggle", type_ "checkbox", onClick (ToggleTodo todo) ]
+            [ input [ class "toggle", type_ "checkbox", onClick (ToggleTodo todo), checked (isDone todo) ]
                 []
             , label []
                 [ text todo.text ]
