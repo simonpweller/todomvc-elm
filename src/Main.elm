@@ -115,6 +115,11 @@ allDone todos =
     not (anyOpen todos)
 
 
+openCount : List Todo -> Int
+openCount todos =
+    List.length (List.filter isOpen todos)
+
+
 
 -- VIEW
 
@@ -139,7 +144,7 @@ view model =
                         model.todos
                     )
                 ]
-            , renderFooter
+            , renderFooter model.todos
             ]
         )
 
@@ -183,12 +188,19 @@ renderTodo todo =
         ]
 
 
-renderFooter =
+renderFooter : List Todo -> Html.Html msg
+renderFooter todos =
     footer [ class "footer" ]
         [ span [ class "todo-count" ]
             [ strong []
-                [ text "0" ]
-            , text "item left"
+                [ text (String.fromInt (openCount todos)) ]
+            , text
+                (if openCount todos == 1 then
+                    " item left"
+
+                 else
+                    " items left"
+                )
             ]
         , ul [ class "filters" ]
             [ li []
