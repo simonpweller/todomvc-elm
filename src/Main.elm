@@ -51,6 +51,7 @@ type Msg
     | Toggle Todo
     | ToggleAll
     | Remove Todo
+    | RemoveCompleted
 
 
 update : Msg -> Model -> Model
@@ -80,6 +81,9 @@ update msg model =
         Remove todo ->
             { model | todos = removeTodo todo model.todos }
 
+        RemoveCompleted ->
+            { model | todos = removeCompleted model.todos }
+
 
 toggleTodo : Todo -> List Todo -> List Todo
 toggleTodo todoToToggle list =
@@ -108,6 +112,11 @@ removeTodo todoToRemove list =
     List.filter filter list
 
 
+removeCompleted : List Todo -> List Todo
+removeCompleted todos =
+    List.filter isOpen todos
+
+
 isDone : Todo -> Bool
 isDone todo =
     todo.completed
@@ -121,6 +130,11 @@ isOpen todo =
 anyOpen : List Todo -> Bool
 anyOpen todos =
     List.any isOpen todos
+
+
+anyDone : List Todo -> Bool
+anyDone todos =
+    List.any isDone todos
 
 
 allDone : List Todo -> Bool
@@ -203,7 +217,7 @@ renderTodo todo =
         ]
 
 
-renderFooter : List Todo -> Html.Html msg
+renderFooter : List Todo -> Html.Html Msg
 renderFooter todos =
     footer [ class "footer" ]
         [ span [ class "todo-count" ]
@@ -231,6 +245,10 @@ renderFooter todos =
                     [ text "Completed" ]
                 ]
             ]
-        , button [ class "clear-completed" ]
-            [ text "Clear completed" ]
+        , if anyDone todos then
+            button [ class "clear-completed", onClick RemoveCompleted ]
+                [ text "Clear completed" ]
+
+          else
+            text ""
         ]
