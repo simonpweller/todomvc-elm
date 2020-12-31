@@ -48,8 +48,9 @@ init =
 type Msg
     = UpdateNewTodoText String
     | SubmitNewTodo
-    | ToggleTodo Todo
+    | Toggle Todo
     | ToggleAll
+    | Remove Todo
 
 
 update : Msg -> Model -> Model
@@ -65,7 +66,7 @@ update msg model =
             else
                 { model | todos = model.todos ++ [ Todo (String.trim model.newTodoText) model.nextId False ], newTodoText = "", nextId = model.nextId + 1 }
 
-        ToggleTodo todo ->
+        Toggle todo ->
             { model | todos = toggleTodo todo model.todos }
 
         ToggleAll ->
@@ -75,6 +76,9 @@ update msg model =
                         (toggleTo (anyOpen model.todos))
                         model.todos
             }
+
+        Remove todo ->
+            { model | todos = removeTodo todo model.todos }
 
 
 toggleTodo : Todo -> List Todo -> List Todo
@@ -93,6 +97,15 @@ toggleTodo todoToToggle list =
 toggleTo : Bool -> Todo -> Todo
 toggleTo to todo =
     { todo | completed = to }
+
+
+removeTodo : Todo -> List Todo -> List Todo
+removeTodo todoToRemove list =
+    let
+        filter todo =
+            not (todo.id == todoToRemove.id)
+    in
+    List.filter filter list
 
 
 isDone : Todo -> Bool
@@ -178,10 +191,12 @@ renderTodo todo =
             []
         )
         [ div [ class "view" ]
-            [ input [ class "toggle", type_ "checkbox", onClick (ToggleTodo todo), checked (isDone todo) ]
+            [ input [ class "toggle", type_ "checkbox", onClick (Toggle todo), checked (isDone todo) ]
                 []
             , label []
                 [ text todo.text ]
+            , button [ class "destroy", onClick (Remove todo) ]
+                []
             ]
         , input [ class "edit", value "Create a TodoMVC template" ]
             []
