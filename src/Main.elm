@@ -2,8 +2,8 @@ module Main exposing (main)
 
 import Browser
 import Html exposing (Attribute, a, button, div, footer, h1, header, input, label, li, main_, section, span, strong, text, ul)
-import Html.Attributes exposing (autofocus, checked, class, for, href, id, placeholder, type_, value)
-import Html.Events exposing (keyCode, on, onBlur, onClick, onInput)
+import Html.Attributes exposing (autofocus, checked, class, classList, for, href, id, placeholder, type_, value)
+import Html.Events exposing (keyCode, on, onBlur, onClick, onDoubleClick, onInput)
 import Json.Decode as Json
 
 
@@ -30,6 +30,7 @@ type alias Model =
     { todos : List Todo
     , newTodoText : String
     , nextId : Int
+    , editing : Maybe Todo
     }
 
 
@@ -38,6 +39,7 @@ init =
     { todos = []
     , newTodoText = ""
     , nextId = 0
+    , editing = Nothing
     }
 
 
@@ -52,6 +54,9 @@ type Msg
     | ToggleAll
     | Remove Todo
     | RemoveCompleted
+    | StartEditing Todo
+    | CompleteEditing Todo
+    | CancelEditing
 
 
 update : Msg -> Model -> Model
@@ -84,6 +89,15 @@ update msg model =
         RemoveCompleted ->
             { model | todos = removeCompleted model.todos }
 
+        StartEditing todo ->
+            { model | editing = Just todo }
+
+        CompleteEditing todo ->
+            { model | todos = updateTodo todo model.todos, editing = Nothing }
+
+        CancelEditing ->
+            { model | editing = Nothing }
+
 
 toggleTodo : Todo -> List Todo -> List Todo
 toggleTodo todoToToggle list =
@@ -110,6 +124,19 @@ removeTodo todoToRemove list =
             not (todo.id == todoToRemove.id)
     in
     List.filter filter list
+
+
+updateTodo : Todo -> List Todo -> List Todo
+updateTodo todoToUpdate list =
+    let
+        replace todo =
+            if todo.id == todoToUpdate.id then
+                todoToUpdate
+
+            else
+                todo
+    in
+    List.map replace list
 
 
 removeCompleted : List Todo -> List Todo
@@ -147,6 +174,16 @@ openCount todos =
     List.length (List.filter isOpen todos)
 
 
+isEditing : Maybe Todo -> Todo -> Bool
+isEditing editing todoToCheck =
+    case editing of
+        Just a ->
+            a.id == todoToCheck.id
+
+        Nothing ->
+            False
+
+
 
 -- VIEW
 
@@ -167,7 +204,7 @@ view model =
                     [ text "Mark all as complete" ]
                 , ul [ class "todo-list" ]
                     (List.map
-                        renderTodo
+                        (renderTodo model.editing)
                         model.todos
                     )
                 ]
@@ -195,19 +232,18 @@ handleKeyDown code =
         Json.fail "not ENTER"
 
 
-renderTodo : Todo -> Html.Html Msg
-renderTodo todo =
+renderTodo : Maybe Todo -> Todo -> Html.Html Msg
+renderTodo editing todo =
     li
-        (if todo.completed then
-            [ class "completed" ]
-
-         else
-            []
-        )
+        [ classList
+            [ ( "completed", todo.completed )
+            , ( "editing", isEditing editing todo )
+            ]
+        ]
         [ div [ class "view" ]
             [ input [ class "toggle", type_ "checkbox", onClick (Toggle todo), checked (isDone todo) ]
                 []
-            , label []
+            , label [ onDoubleClick (StartEditing todo) ]
                 [ text todo.text ]
             , button [ class "destroy", onClick (Remove todo) ]
                 []
