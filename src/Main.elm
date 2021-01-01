@@ -12,7 +12,7 @@ import Json.Decode as Json
 
 
 main =
-    Browser.sandbox { init = init, update = update, view = view }
+    Browser.element { init = init, update = update, subscriptions = subscriptions, view = view }
 
 
 
@@ -34,13 +34,15 @@ type alias Model =
     }
 
 
-init : Model
-init =
-    { todos = []
-    , newTodoText = ""
-    , nextId = 0
-    , editing = Nothing
-    }
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { todos = []
+      , newTodoText = ""
+      , nextId = 0
+      , editing = Nothing
+      }
+    , Cmd.none
+    )
 
 
 
@@ -59,44 +61,57 @@ type Msg
     | CancelEditing
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UpdateNewTodoText text ->
-            { model | newTodoText = text }
+            ( { model | newTodoText = text }, Cmd.none )
 
         SubmitNewTodo ->
-            if String.isEmpty (String.trim model.newTodoText) then
+            ( if String.isEmpty (String.trim model.newTodoText) then
                 model
 
-            else
+              else
                 { model | todos = model.todos ++ [ Todo (String.trim model.newTodoText) model.nextId False ], newTodoText = "", nextId = model.nextId + 1 }
+            , Cmd.none
+            )
 
         Toggle todo ->
-            { model | todos = toggleTodo todo model.todos }
+            ( { model | todos = toggleTodo todo model.todos }, Cmd.none )
 
         ToggleAll ->
-            { model
+            ( { model
                 | todos =
                     List.map
                         (toggleTo (anyOpen model.todos))
                         model.todos
-            }
+              }
+            , Cmd.none
+            )
 
         Remove todo ->
-            { model | todos = removeTodo todo model.todos }
+            ( { model | todos = removeTodo todo model.todos }, Cmd.none )
 
         RemoveCompleted ->
-            { model | todos = removeCompleted model.todos }
+            ( { model | todos = removeCompleted model.todos }, Cmd.none )
 
         StartEditing todo ->
-            { model | editing = Just todo }
+            ( { model | editing = Just todo }, Cmd.none )
 
         CompleteEditing todo ->
-            { model | todos = updateTodo todo model.todos, editing = Nothing }
+            ( { model | todos = updateTodo todo model.todos, editing = Nothing }, Cmd.none )
 
         CancelEditing ->
-            { model | editing = Nothing }
+            ( { model | editing = Nothing }, Cmd.none )
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.none
 
 
 toggleTodo : Todo -> List Todo -> List Todo
