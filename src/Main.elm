@@ -43,7 +43,7 @@ init _ =
       , nextId = 0
       , editing = Nothing
       }
-    , Cmd.none
+    , Task.attempt (\_ -> Noop) (Dom.focus "new-todo")
     )
 
 
@@ -239,7 +239,7 @@ newTodo newTodoText =
     header [ class "header" ]
         [ h1 []
             [ text "todos" ]
-        , input [ autofocus True, class "new-todo", placeholder "What needs to be done?", value newTodoText, onBlur SubmitNewTodo, onInput UpdateNewTodoText, on "keydown" (Json.andThen handleKeyDown keyCode) ]
+        , input [ autofocus True, class "new-todo", id "new-todo", placeholder "What needs to be done?", value newTodoText, onBlur SubmitNewTodo, onInput UpdateNewTodoText, on "keydown" (Json.andThen handleKeyDown keyCode) ]
             []
         ]
 
