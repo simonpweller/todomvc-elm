@@ -126,7 +126,11 @@ update msg model =
                             model.todos
 
                         Just t ->
-                            updateTodo t model.todos
+                            if String.isEmpty (String.trim t.text) then
+                                removeTodo t model.todos
+
+                            else
+                                updateTodo t model.todos
                 , editing = Nothing
               }
             , Cmd.none
@@ -264,13 +268,13 @@ newTodo newTodoText =
     header [ class "header" ]
         [ h1 []
             [ text "todos" ]
-        , input [ autofocus True, class "new-todo", id "new-todo", placeholder "What needs to be done?", value newTodoText, onBlur SubmitNewTodo, onInput UpdateNewTodoText, on "keydown" (Json.andThen handleKeyDown keyCode) ]
+        , input [ autofocus True, class "new-todo", id "new-todo", placeholder "What needs to be done?", value newTodoText, onBlur SubmitNewTodo, onInput UpdateNewTodoText, on "keydown" (Json.andThen handleSubmit keyCode) ]
             []
         ]
 
 
-handleKeyDown : number -> Json.Decoder Msg
-handleKeyDown code =
+handleSubmit : number -> Json.Decoder Msg
+handleSubmit code =
     if code == 13 then
         Json.succeed SubmitNewTodo
 
@@ -307,9 +311,22 @@ renderTodo editing todo =
             , id ("todo-" ++ String.fromInt todo.id)
             , onInput UpdateEditingText
             , onBlur CompleteEditing
+            , on "keydown" (Json.andThen handleKeyDown keyCode)
             ]
             []
         ]
+
+
+handleKeyDown : number -> Json.Decoder Msg
+handleKeyDown code =
+    if code == 13 then
+        Json.succeed CompleteEditing
+
+    else if code == 27 then
+        Json.succeed CancelEditing
+
+    else
+        Json.fail "not ENTER"
 
 
 renderFooter : List Todo -> Html.Html Msg
