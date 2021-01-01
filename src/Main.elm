@@ -60,7 +60,8 @@ type Msg
     | Remove Todo
     | RemoveCompleted
     | StartEditing Todo
-    | CompleteEditing Todo
+    | UpdateEditingText String
+    | CompleteEditing
     | CancelEditing
 
 
@@ -104,8 +105,32 @@ update msg model =
         StartEditing todo ->
             ( { model | editing = Just todo }, Task.attempt (\_ -> Noop) (Dom.focus ("todo-" ++ String.fromInt todo.id)) )
 
-        CompleteEditing todo ->
-            ( { model | todos = updateTodo todo model.todos, editing = Nothing }, Cmd.none )
+        UpdateEditingText text ->
+            ( { model
+                | editing =
+                    case model.editing of
+                        Nothing ->
+                            Nothing
+
+                        Just t ->
+                            Just { t | text = text }
+              }
+            , Cmd.none
+            )
+
+        CompleteEditing ->
+            ( { model
+                | todos =
+                    case model.editing of
+                        Nothing ->
+                            model.todos
+
+                        Just t ->
+                            updateTodo t model.todos
+                , editing = Nothing
+              }
+            , Cmd.none
+            )
 
         CancelEditing ->
             ( { model | editing = Nothing }, Cmd.none )
@@ -148,11 +173,11 @@ removeTodo todoToRemove list =
 
 
 updateTodo : Todo -> List Todo -> List Todo
-updateTodo todoToUpdate list =
+updateTodo editedTodo list =
     let
         replace todo =
-            if todo.id == todoToUpdate.id then
-                todoToUpdate
+            if todo.id == editedTodo.id then
+                { editedTodo | text = String.trim editedTodo.text }
 
             else
                 todo
@@ -269,7 +294,20 @@ renderTodo editing todo =
             , button [ class "destroy", onClick (Remove todo) ]
                 []
             ]
-        , input [ class "edit", value todo.text, id ("todo-" ++ String.fromInt todo.id) ]
+        , input
+            [ class "edit"
+            , value
+                (case editing of
+                    Nothing ->
+                        ""
+
+                    Just t ->
+                        t.text
+                )
+            , id ("todo-" ++ String.fromInt todo.id)
+            , onInput UpdateEditingText
+            , onBlur CompleteEditing
+            ]
             []
         ]
 
