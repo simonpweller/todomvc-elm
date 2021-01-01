@@ -1,10 +1,12 @@
 module Main exposing (main)
 
 import Browser
+import Browser.Dom as Dom
 import Html exposing (Attribute, a, button, div, footer, h1, header, input, label, li, main_, section, span, strong, text, ul)
 import Html.Attributes exposing (autofocus, checked, class, classList, for, href, id, placeholder, type_, value)
 import Html.Events exposing (keyCode, on, onBlur, onClick, onDoubleClick, onInput)
 import Json.Decode as Json
+import Task
 
 
 
@@ -50,7 +52,8 @@ init _ =
 
 
 type Msg
-    = UpdateNewTodoText String
+    = Noop
+    | UpdateNewTodoText String
     | SubmitNewTodo
     | Toggle Todo
     | ToggleAll
@@ -64,6 +67,9 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        Noop ->
+            ( model, Cmd.none )
+
         UpdateNewTodoText text ->
             ( { model | newTodoText = text }, Cmd.none )
 
@@ -96,7 +102,7 @@ update msg model =
             ( { model | todos = removeCompleted model.todos }, Cmd.none )
 
         StartEditing todo ->
-            ( { model | editing = Just todo }, Cmd.none )
+            ( { model | editing = Just todo }, Task.attempt (\_ -> Noop) (Dom.focus ("todo-" ++ String.fromInt todo.id)) )
 
         CompleteEditing todo ->
             ( { model | todos = updateTodo todo model.todos, editing = Nothing }, Cmd.none )
@@ -263,7 +269,7 @@ renderTodo editing todo =
             , button [ class "destroy", onClick (Remove todo) ]
                 []
             ]
-        , input [ class "edit", value "Create a TodoMVC template" ]
+        , input [ class "edit", value todo.text, id ("todo-" ++ String.fromInt todo.id) ]
             []
         ]
 
