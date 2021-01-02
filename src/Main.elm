@@ -5,7 +5,10 @@ import Browser.Dom as Dom
 import Html exposing (Attribute, a, button, div, footer, h1, header, input, label, li, main_, section, span, strong, text, ul)
 import Html.Attributes exposing (autofocus, checked, class, classList, for, href, id, placeholder, type_, value)
 import Html.Events exposing (keyCode, on, onBlur, onClick, onDoubleClick, onInput)
-import Json.Decode as Json
+import Json.Decode as Decode exposing (Decoder, bool, decodeString, int, list, string)
+import Json.Decode.Pipeline exposing (required)
+import Json.Encode as Encode
+import Ports
 import Task
 
 
@@ -36,9 +39,18 @@ type alias Model =
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( { todos = []
+init : Maybe String -> ( Model, Cmd Msg )
+init storedTodos =
+    let
+        todos =
+            case storedTodos of
+                Just todosJson ->
+                    decodeSavedTodos todosJson
+
+                Nothing ->
+                    []
+    in
+    ( { todos = todos
       , newTodoText = ""
       , nextId = 0
       , editing = Nothing
@@ -75,32 +87,49 @@ update msg model =
             ( { model | newTodoText = text }, Cmd.none )
 
         SubmitNewTodo ->
-            ( if String.isEmpty (String.trim model.newTodoText) then
-                model
+            let
+                todos =
+                    model.todos ++ [ Todo (String.trim model.newTodoText) model.nextId False ]
+            in
+            if String.isEmpty (String.trim model.newTodoText) then
+                ( model, Cmd.none )
 
-              else
-                { model | todos = model.todos ++ [ Todo (String.trim model.newTodoText) model.nextId False ], newTodoText = "", nextId = model.nextId + 1 }
-            , Cmd.none
-            )
+            else
+                ( { model | todos = todos, newTodoText = "", nextId = model.nextId + 1 }, saveTodos todos )
 
         Toggle todo ->
-            ( { model | todos = toggleTodo todo model.todos }, Cmd.none )
+            let
+                todos =
+                    toggleTodo todo model.todos
+            in
+            ( { model | todos = todos }, saveTodos todos )
 
         ToggleAll ->
-            ( { model
-                | todos =
+            let
+                todos =
                     List.map
                         (toggleTo (anyOpen model.todos))
                         model.todos
+            in
+            ( { model
+                | todos = todos
               }
-            , Cmd.none
+            , saveTodos todos
             )
 
         Remove todo ->
-            ( { model | todos = removeTodo todo model.todos }, Cmd.none )
+            let
+                todos =
+                    removeTodo todo model.todos
+            in
+            ( { model | todos = todos }, saveTodos todos )
 
         RemoveCompleted ->
-            ( { model | todos = removeCompleted model.todos }, Cmd.none )
+            let
+                todos =
+                    removeCompleted model.todos
+            in
+            ( { model | todos = todos }, saveTodos todos )
 
         StartEditing todo ->
             ( { model | editing = Just todo }, Task.attempt (\_ -> Noop) (Dom.focus ("todo-" ++ String.fromInt todo.id)) )
@@ -119,8 +148,8 @@ update msg model =
             )
 
         CompleteEditing ->
-            ( { model
-                | todos =
+            let
+                todos =
                     case model.editing of
                         Nothing ->
                             model.todos
@@ -131,9 +160,12 @@ update msg model =
 
                             else
                                 updateTodo t model.todos
+            in
+            ( { model
+                | todos = todos
                 , editing = Nothing
               }
-            , Cmd.none
+            , saveTodos todos
             )
 
         CancelEditing ->
@@ -234,6 +266,45 @@ isEditing editing todoToCheck =
             False
 
 
+saveTodos : List Todo -> Cmd msg
+saveTodos todos =
+    Encode.list todoEncoder todos
+        |> Encode.encode 0
+        |> Ports.storeTodos
+
+
+decodeSavedTodos : String -> List Todo
+decodeSavedTodos todosJson =
+    case decodeString todosDecoder todosJson of
+        Ok todos ->
+            todos
+
+        Err _ ->
+            []
+
+
+todoEncoder : Todo -> Encode.Value
+todoEncoder todo =
+    Encode.object
+        [ ( "id", Encode.int todo.id )
+        , ( "text", Encode.string todo.text )
+        , ( "completed", Encode.bool todo.completed )
+        ]
+
+
+todosDecoder : Decoder (List Todo)
+todosDecoder =
+    list todoDecoder
+
+
+todoDecoder : Decoder Todo
+todoDecoder =
+    Decode.succeed Todo
+        |> required "text" string
+        |> required "id" int
+        |> required "completed" bool
+
+
 
 -- VIEW
 
@@ -268,18 +339,18 @@ newTodo newTodoText =
     header [ class "header" ]
         [ h1 []
             [ text "todos" ]
-        , input [ autofocus True, class "new-todo", id "new-todo", placeholder "What needs to be done?", value newTodoText, onBlur SubmitNewTodo, onInput UpdateNewTodoText, on "keydown" (Json.andThen handleSubmit keyCode) ]
+        , input [ autofocus True, class "new-todo", id "new-todo", placeholder "What needs to be done?", value newTodoText, onBlur SubmitNewTodo, onInput UpdateNewTodoText, on "keydown" (Decode.andThen handleSubmit keyCode) ]
             []
         ]
 
 
-handleSubmit : number -> Json.Decoder Msg
+handleSubmit : number -> Decode.Decoder Msg
 handleSubmit code =
     if code == 13 then
-        Json.succeed SubmitNewTodo
+        Decode.succeed SubmitNewTodo
 
     else
-        Json.fail "not ENTER"
+        Decode.fail "not ENTER"
 
 
 renderTodo : Maybe Todo -> Todo -> Html.Html Msg
@@ -311,22 +382,22 @@ renderTodo editing todo =
             , id ("todo-" ++ String.fromInt todo.id)
             , onInput UpdateEditingText
             , onBlur CompleteEditing
-            , on "keydown" (Json.andThen handleKeyDown keyCode)
+            , on "keydown" (Decode.andThen handleKeyDown keyCode)
             ]
             []
         ]
 
 
-handleKeyDown : number -> Json.Decoder Msg
+handleKeyDown : number -> Decode.Decoder Msg
 handleKeyDown code =
     if code == 13 then
-        Json.succeed CompleteEditing
+        Decode.succeed CompleteEditing
 
     else if code == 27 then
-        Json.succeed CancelEditing
+        Decode.succeed CancelEditing
 
     else
-        Json.fail "not ENTER"
+        Decode.fail "not ENTER"
 
 
 renderFooter : List Todo -> Html.Html Msg
