@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Browser.Dom as Dom
+import Debug exposing (todo)
 import Html exposing (Attribute, a, button, div, footer, h1, header, input, label, li, main_, section, span, strong, text, ul)
 import Html.Attributes exposing (autofocus, checked, class, classList, for, href, id, placeholder, type_, value)
 import Html.Events exposing (keyCode, on, onBlur, onClick, onDoubleClick, onInput)
@@ -31,11 +32,18 @@ type alias Todo =
     }
 
 
+type Filter
+    = All
+    | Active
+    | Completed
+
+
 type alias Model =
     { todos : List Todo
     , newTodoText : String
     , nextId : Int
     , editing : Maybe Todo
+    , filter : Filter
     }
 
 
@@ -54,6 +62,7 @@ init storedTodos =
       , newTodoText = ""
       , nextId = 0
       , editing = Nothing
+      , filter = All
       }
     , Task.attempt (\_ -> Noop) (Dom.focus "new-todo")
     )
@@ -75,6 +84,7 @@ type Msg
     | UpdateEditingText String
     | CompleteEditing
     | CancelEditing
+    | SetFilter Filter
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -170,6 +180,9 @@ update msg model =
 
         CancelEditing ->
             ( { model | editing = Nothing }, Cmd.none )
+
+        SetFilter filter ->
+            ( { model | filter = filter }, Cmd.none )
 
 
 
@@ -283,15 +296,6 @@ decodeSavedTodos todosJson =
             []
 
 
-todoEncoder : Todo -> Encode.Value
-todoEncoder todo =
-    Encode.object
-        [ ( "id", Encode.int todo.id )
-        , ( "text", Encode.string todo.text )
-        , ( "completed", Encode.bool todo.completed )
-        ]
-
-
 todosDecoder : Decoder (List Todo)
 todosDecoder =
     list todoDecoder
@@ -305,12 +309,37 @@ todoDecoder =
         |> required "completed" bool
 
 
+todoEncoder : Todo -> Encode.Value
+todoEncoder todo =
+    Encode.object
+        [ ( "id", Encode.int todo.id )
+        , ( "text", Encode.string todo.text )
+        , ( "completed", Encode.bool todo.completed )
+        ]
+
+
 
 -- VIEW
 
 
 view : Model -> Html.Html Msg
 view model =
+    let
+        filteredTodos =
+            List.filter
+                (\todo ->
+                    case model.filter of
+                        All ->
+                            True
+
+                        Active ->
+                            not todo.completed
+
+                        Completed ->
+                            todo.completed
+                )
+                model.todos
+    in
     main_ []
         (if List.isEmpty model.todos then
             [ newTodo model.newTodoText ]
@@ -326,10 +355,10 @@ view model =
                 , ul [ class "todo-list" ]
                     (List.map
                         (renderTodo model.editing)
-                        model.todos
+                        filteredTodos
                     )
                 ]
-            , renderFooter model.todos
+            , renderFooter model
             ]
         )
 
@@ -400,14 +429,14 @@ handleKeyDown code =
         Decode.fail "not ENTER"
 
 
-renderFooter : List Todo -> Html.Html Msg
-renderFooter todos =
+renderFooter : Model -> Html.Html Msg
+renderFooter model =
     footer [ class "footer" ]
         [ span [ class "todo-count" ]
             [ strong []
-                [ text (String.fromInt (openCount todos)) ]
+                [ text (String.fromInt (openCount model.todos)) ]
             , text
-                (if openCount todos == 1 then
+                (if openCount model.todos == 1 then
                     " item left"
 
                  else
@@ -416,19 +445,19 @@ renderFooter todos =
             ]
         , ul [ class "filters" ]
             [ li []
-                [ a [ class "selected", href "#/" ]
+                [ a [ onClick (SetFilter All), classList [ ( "selected", model.filter == All ) ], href "#/" ]
                     [ text "All" ]
                 ]
             , li []
-                [ a [ href "#/active" ]
+                [ a [ onClick (SetFilter Active), classList [ ( "selected", model.filter == Active ) ], href "#/active" ]
                     [ text "Active" ]
                 ]
             , li []
-                [ a [ href "#/completed" ]
+                [ a [ onClick (SetFilter Completed), classList [ ( "selected", model.filter == Completed ) ], href "#/completed" ]
                     [ text "Completed" ]
                 ]
             ]
-        , if anyDone todos then
+        , if anyDone model.todos then
             button [ class "clear-completed", onClick RemoveCompleted ]
                 [ text "Clear completed" ]
 
