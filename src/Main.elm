@@ -2,7 +2,6 @@ module Main exposing (main)
 
 import Browser
 import Browser.Dom as Dom
-import Debug exposing (todo)
 import Html exposing (Attribute, a, button, div, footer, h1, header, input, label, li, main_, section, span, strong, text, ul)
 import Html.Attributes exposing (autofocus, checked, class, classList, for, href, id, placeholder, type_, value)
 import Html.Events exposing (keyCode, on, onBlur, onClick, onDoubleClick, onInput)
@@ -60,7 +59,13 @@ init storedTodos =
     in
     ( { todos = todos
       , newTodoText = ""
-      , nextId = 0
+      , nextId =
+            case List.maximum (List.map (\todo -> todo.id) todos) of
+                Nothing ->
+                    0
+
+                Just maxId ->
+                    maxId + 1
       , editing = Nothing
       , filter = All
       }
